@@ -24,11 +24,14 @@ export default function NoteTakingApp() {
   const [showArchived, setShowArchived] = useState(false)
   const [editingNote, setEditingNote] = useState<Note | null>(null)
   const [deleteConfirmation, setDeleteConfirmation] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true) // Add loading state
 
   useEffect(() => {
     const fetchNotes = async () => {
+      setLoading(true); // Set loading to true before fetching
       const fetchedNotes = showArchived ? await getArchivedNotes() : await getActiveNotes();
       setNotes(fetchedNotes);
+      setLoading(false); // Set loading to false after fetching
     };
     fetchNotes();
   }, [showArchived]);
@@ -50,13 +53,42 @@ export default function NoteTakingApp() {
   }
 
   const handleArchiveToggle = async (noteId: number) => {
-    const updatedNote = await toggleArchiveStatus(noteId);
-    setNotes(notes.map(note => note.id === noteId ? updatedNote : note));
+    // Optimistically update the UI
+    const updatedNotes = notes.map(note => 
+      note.id === noteId ? { ...note, isArchived: !note.isArchived } : note
+    );
+    setNotes(updatedNotes);
+
+    // Perform the archive operation
+    try {
+      const updatedNote = await toggleArchiveStatus(noteId);
+      setNotes(prevNotes => prevNotes.map(note => 
+        note.id === noteId ? updatedNote : note
+      ));
+    } catch (error) {
+      console.error('Error toggling archive status:', (error as Error).message);
+      // Revert the optimistic update if the operation fails
+      setNotes(prevNotes => prevNotes.map(note => 
+        note.id === noteId ? { ...note, isArchived: !note.isArchived } : note
+      ));
+    }
   }
 
   const handleDeleteNote = async (noteId: number) => {
-    await deleteNote(noteId);
+    // Optimistically update the UI
     setNotes(notes.filter(note => note.id !== noteId));
+
+    // Perform the delete operation
+    try {
+      await deleteNote(noteId);
+    } catch (error) {
+      console.error('Error deleting note:', (error as Error).message);
+      // Optionally, revert the optimistic update if the operation fails
+      const deletedNote = notes.find(note => note.id === noteId);
+      if (deletedNote) {
+        setNotes(prevNotes => [...prevNotes, deletedNote]);
+      }
+    }
     setDeleteConfirmation(null);
   }
 
@@ -95,47 +127,54 @@ export default function NoteTakingApp() {
           </div>
         </div>
 
-        {/* Notes Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredNotes.map(note => (
-            <Card key={note.id} className="flex flex-col">
-              <CardHeader>
-                <CardTitle>{note.title}</CardTitle>
-              </CardHeader>
-              <CardContent className="flex-grow">
-                <p className="line-clamp-6">{note.content}</p>
-              </CardContent>
-              <CardFooter className="flex justify-between">
-                <Button variant="ghost" size="sm" onClick={() => handleNoteClick(note)}>
-                  <Edit3 className="mr-1 h-4 w-4" /> Edit
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => handleArchiveToggle(note.id)}>
-                  {note.isArchived ? <CheckSquare className="mr-1 h-4 w-4" /> : <Archive className="mr-1 h-4 w-4" />}
-                  {note.isArchived ? 'Unarchive' : 'Archive'}
-                </Button>
-                <Dialog open={deleteConfirmation === note.id} onOpenChange={(open) => setDeleteConfirmation(open ? note.id : null)}>
-                  <DialogTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Confirm Deletion</DialogTitle>
-                      <DialogDescription>
-                        Are you sure you want to delete this note? This action cannot be undone.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setDeleteConfirmation(null)}>Cancel</Button>
-                      <Button variant="destructive" onClick={() => handleDeleteNote(note.id)}>Delete</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
+        {/* Loading Indicator */}
+        {loading ? (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
+          </div>
+        ) : (
+          // Notes Grid
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredNotes.map(note => (
+              <Card key={note.id} className="flex flex-col">
+                <CardHeader>
+                  <CardTitle>{note.title}</CardTitle>
+                </CardHeader>
+                <CardContent className="flex-grow">
+                  <p className="line-clamp-6">{note.content}</p>
+                </CardContent>
+                <CardFooter className="flex justify-between">
+                  <Button variant="ghost" size="sm" onClick={() => handleNoteClick(note)}>
+                    <Edit3 className="mr-1 h-4 w-4" /> Edit
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => handleArchiveToggle(note.id)}>
+                    {note.isArchived ? <CheckSquare className="mr-1 h-4 w-4" /> : <Archive className="mr-1 h-4 w-4" />}
+                    {note.isArchived ? 'Unarchive' : 'Archive'}
+                  </Button>
+                  <Dialog open={deleteConfirmation === note.id} onOpenChange={(open) => setDeleteConfirmation(open ? note.id : null)}>
+                    <DialogTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Confirm Deletion</DialogTitle>
+                        <DialogDescription>
+                          Are you sure you want to delete this note? This action cannot be undone.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setDeleteConfirmation(null)}>Cancel</Button>
+                        <Button variant="destructive" onClick={() => handleDeleteNote(note.id)}>Delete</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Full-screen Edit Modal */}
