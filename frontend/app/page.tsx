@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
+import { getActiveNotes, getArchivedNotes, createNote, updateNote, deleteNote, toggleArchiveStatus } from '../services/notes-service'
 
 type Note = {
   id: number
@@ -34,44 +35,39 @@ export default function NoteTakingApp() {
   const [deleteConfirmation, setDeleteConfirmation] = useState<number | null>(null)
 
   useEffect(() => {
-    setNotes(initialNotes)
-  }, [])
+    const fetchNotes = async () => {
+      const fetchedNotes = showArchived ? await getArchivedNotes() : await getActiveNotes();
+      setNotes(fetchedNotes);
+    };
+    fetchNotes();
+  }, [showArchived]);
 
   const filteredNotes = notes.filter(note => note.isArchived === showArchived)
 
   const handleNoteClick = (note: Note) => {
     setEditingNote(note)
   }
-  const handleNoteUpdate = (updatedNote: Note) => {
-    setNotes(notes.map(note => note.id === updatedNote.id ? updatedNote : note))
-    setEditingNote(null)
-    // TODO: Send API request to update note in the backend
-    // Example: await updateNoteInBackend(updatedNote)
+  const handleNoteUpdate = async (updatedNote: Note) => {
+    await updateNote(updatedNote.id, updatedNote);
+    setNotes(notes.map(note => note.id === updatedNote.id ? updatedNote : note));
+    setEditingNote(null);
   }
 
-  const handleArchiveToggle = (noteId: number) => {
-    const updatedNotes = notes.map(note => 
-      note.id === noteId ? { ...note, isArchived: !note.isArchived } : note
-    )
-    setNotes(updatedNotes)
-    // TODO: Send API request to update note's archive status in the backend
-    // Example: await updateNoteArchiveStatus(noteId, !notes.find(n => n.id === noteId)?.isArchived)
+  const handleArchiveToggle = async (noteId: number) => {
+    const updatedNote = await toggleArchiveStatus(noteId);
+    setNotes(notes.map(note => note.id === noteId ? updatedNote : note));
   }
 
-  const handleDeleteNote = (noteId: number) => {
-    setNotes(notes.filter(note => note.id !== noteId))
-    setDeleteConfirmation(null)
-    // TODO: Send API request to delete note in the backend
-    // Example: await deleteNoteInBackend(noteId)
+  const handleDeleteNote = async (noteId: number) => {
+    await deleteNote(noteId);
+    setNotes(notes.filter(note => note.id !== noteId));
+    setDeleteConfirmation(null);
   }
 
-  const handleCreateNote = () => {
-    const newNote = { id: Date.now(), title: '', content: '', isArchived: false }
-    setEditingNote(newNote)
-    // Note: The actual creation in the state happens after editing, in handleNoteUpdate
-    // TODO: Send API request to create note in the backend after editing
-    // Example: const createdNote = await createNoteInBackend(newNote)
-    // Then update the local state with the created note from the backend
+  const handleCreateNote = async () => {
+    const newNote = { title: '', content: '', isArchived: false };
+    const createdNote = await createNote(newNote);
+    setEditingNote(createdNote);
   }
 
   return (
