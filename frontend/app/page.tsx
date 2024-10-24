@@ -12,21 +12,12 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { getActiveNotes, getArchivedNotes, createNote, updateNote, deleteNote, toggleArchiveStatus } from '../services/notes-service'
 
-type Note = {
+ export type Note = {
   id: number
   title: string
   content: string
   isArchived: boolean
 }
-
-const initialNotes: Note[] = [
-  { id: 1, title: 'Meeting Notes', content: 'Discuss project timeline and milestones. Review team assignments and deadlines.', isArchived: false },
-  { id: 2, title: 'Grocery List', content: 'Milk, eggs, bread, fruits, vegetables, chicken, pasta', isArchived: false },
-  { id: 3, title: 'App Idea', content: 'Create a note-taking app with archive feature and intuitive UI', isArchived: false },
-  { id: 4, title: 'Book Recommendations', content: '1. The Great Gatsby\n2. To Kill a Mockingbird\n3. 1984\n4. Pride and Prejudice', isArchived: true },
-  { id: 5, title: 'Weekend Plans', content: 'Visit the museum, have lunch at the new cafe, evening movie', isArchived: false },
-  { id: 6, title: 'Workout Routine', content: 'Monday: Cardio\nTuesday: Upper body\nWednesday: Lower body\nThursday: HIIT\nFriday: Yoga\nSaturday: Full body\nSunday: Rest', isArchived: true },
-]
 
 export default function NoteTakingApp() {
   const [notes, setNotes] = useState<Note[]>([])
@@ -47,10 +38,15 @@ export default function NoteTakingApp() {
   const handleNoteClick = (note: Note) => {
     setEditingNote(note)
   }
+  
   const handleNoteUpdate = async (updatedNote: Note) => {
+    if (!updatedNote.title.trim() || !updatedNote.content.trim()) {
+      alert('Note title or content cannot be empty.');
+      return;
+    }
     await updateNote(updatedNote.id, updatedNote);
     setNotes(notes.map(note => note.id === updatedNote.id ? updatedNote : note));
-    setEditingNote(null);
+    setEditingNote(null); 
   }
 
   const handleArchiveToggle = async (noteId: number) => {
@@ -65,9 +61,18 @@ export default function NoteTakingApp() {
   }
 
   const handleCreateNote = async () => {
-    const newNote = { title: '', content: '', isArchived: false };
+    const newNote = {id: 0, title: '', content: '', isArchived: false };
     const createdNote = await createNote(newNote);
     setEditingNote(createdNote);
+  }
+
+  const closeEditingModal = () => {
+    if (editingNote && (!editingNote.title.trim() || !editingNote.content.trim())) {
+      // Remove the note if it has no content
+      setNotes(notes.filter(note => note.id !== editingNote.id));
+      deleteNote(editingNote.id); // Optionally, remove it from the backend as well
+    }
+    setEditingNote(null);
   }
 
   return (
@@ -144,7 +149,7 @@ export default function NoteTakingApp() {
                 onChange={(e) => setEditingNote({ ...editingNote, title: e.target.value })}
                 placeholder="Note Title"
               />
-              <Button variant="ghost" size="icon" onClick={() => setEditingNote(null)}>
+              <Button variant="ghost" size="icon" onClick={closeEditingModal}>
                 <X className="h-6 w-6" />
               </Button>
             </CardHeader>
