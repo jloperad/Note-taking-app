@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { Note } from '../app/page';
 
-const API_URL = 'http://localhost:3001/api'; // Adjust the port if necessary
+const API_URL = 'https://note-taking-app-33gt.onrender.com/api/'; // Adjust the port if necessary
 
 export const getActiveNotes = async (): Promise<Note[]> => {
   try {
