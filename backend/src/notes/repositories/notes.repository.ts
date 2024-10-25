@@ -42,8 +42,16 @@ export class NotesRepository {
   }
 
   async delete(id: number): Promise<void> {
-    await this.prisma.note.delete({
-      where: { id },
+    await this.prisma.$transaction(async (prisma) => {
+      // First, delete all category associations for this note
+      await prisma.categoryOnNote.deleteMany({
+        where: { noteId: id },
+      });
+  
+      // Then, delete the note itself
+      await prisma.note.delete({
+        where: { id },
+      });
     });
   }
 

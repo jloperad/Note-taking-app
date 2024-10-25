@@ -253,9 +253,9 @@ export default function NoteTakingApp() {
                     {note.isArchived ? <CheckSquare className="mr-1 h-4 w-4" /> : <Archive className="mr-1 h-4 w-4" />}
                     {note.isArchived ? 'Unarchive' : 'Archive'}
                   </Button>
-                  <Dialog open={deleteConfirmation === note.id} onOpenChange={() => setDeleteConfirmation(null)}>
+                  <Dialog open={deleteConfirmation === note.id} onOpenChange={(open) => setDeleteConfirmation(open ? note.id : null)}>
                     <DialogTrigger asChild>
-                      <Button variant="ghost" size="sm" onClick={() => setDeleteConfirmation(note.id)} className="text-gray-600 hover:text-red-600">
+                    <Button variant="ghost" size="icon">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>
