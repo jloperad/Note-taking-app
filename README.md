@@ -38,6 +38,32 @@ git clone <your-private-repo-url>
 cd <your-repo-name>
 ```
 
+### Supabase Database Setup
+
+1. **Create or Access Your Supabase Account**
+   - Go to [Supabase](https://supabase.com/) and sign in or create a new account.
+
+2. **Create a New Project (if you don't have one)**
+   - Click on "New Project" in your Supabase dashboard.
+   - Choose a name for your project and set up a strong database password.
+   - Select your preferred region for hosting.
+
+3. **Access Database Credentials**
+   - Once your project is created, go to the "Settings" section in the sidebar.
+   - Click on "Database" to view your database settings.
+   - Look for the "Connection Info" or "Connection Strings" section.
+
+4. **Copy Database Credentials**
+   - Find and copy the following credentials:
+     - Host (ending with `.supabase.co`)
+     - Database name
+     - Port (usually 5432 for direct connection, 6543 for connection pooling)
+     - User
+     - Password
+
+   You'll need these credentials for the next step when configuring your environment variables.
+
+
 ### Environment Configuration
 
 1. **Backend**: Create a `.env` file in the `backend` directory with the following structure:
@@ -53,7 +79,7 @@ cd <your-repo-name>
 
 ### Running the Application
 
-A script is provided to set up and run both the frontend and backend applications.
+A script is provided to set up and run both the frontend and backend applications.You can run the script by executing the following command in the root directory of the project, you can also use a git bash console:
 
 ```bash
 ./run.sh
