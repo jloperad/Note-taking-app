@@ -74,12 +74,11 @@ export default function NoteTakingApp() {
 
   const filteredNotes = notes.filter(note => note.isArchived === showArchived)
 
-  const handleNoteClick = async (note: Note) => {
-    setEditingNote(note)
+  const fetchNoteCategories = async (noteId: number) => {
     setNoteCategories([]) // Clear previous categories
     setLoadingCategories(true)
     try {
-      const fetchedCategories = await getCategoriesForNote(note.id)
+      const fetchedCategories = await getCategoriesForNote(noteId)
       setNoteCategories(fetchedCategories)
     } catch (error) {
       console.error('Error fetching note categories:', (error as Error).message)
@@ -87,15 +86,37 @@ export default function NoteTakingApp() {
       setLoadingCategories(false)
     }
   }
+
+  const handleNoteClick = async (note: Note) => {
+    setEditingNote(note)
+    await fetchNoteCategories(note.id)
+  }
   
   const handleNoteUpdate = async (updatedNote: Note) => {
     if (!updatedNote.title.trim() || !updatedNote.content.trim()) {
       alert('Note title or content cannot be empty.');
       return;
     }
-    await updateNote(updatedNote.id, updatedNote);
-    setNotes(notes.map(note => note.id === updatedNote.id ? updatedNote : note));
-    setEditingNote(null); 
+
+    try {
+      const savedNote = await updateNote(updatedNote.id, updatedNote);
+      
+      setNotes(prevNotes => {
+        const noteIndex = prevNotes.findIndex(note => note.id === savedNote.id);
+        if (noteIndex !== -1) {
+          // Update existing note
+          return prevNotes.map(note => note.id === savedNote.id ? savedNote : note);
+        } else {
+          // Add new note
+          return [savedNote, ...prevNotes];
+        }
+      });
+
+      setEditingNote(null);
+    } catch (error) {
+      console.error('Error updating note:', (error as Error).message);
+      alert('Failed to save the note. Please try again.');
+    }
   }
 
   const handleArchiveToggle = async (noteId: number) => {
@@ -135,7 +156,9 @@ export default function NoteTakingApp() {
   const handleCreateNote = async () => {
     const newNote = {title: '', content: '', isArchived: false};
     const createdNote = await createNote(newNote as any);
+    setNotes(prevNotes => [createdNote, ...prevNotes]); // Add the new note to the beginning of the list
     setEditingNote(createdNote);
+    setNoteCategories([]); // Clear the noteCategories state for the new note
   }
 
   const closeEditingModal = () => {
