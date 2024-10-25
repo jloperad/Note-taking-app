@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'https://note-taking-app-33gt.onrender.com/api/'; // Adjust the port if necessary
+const API_URL = 'https://note-taking-app-33gt.onrender.com/api'; // Adjust the port if necessary
 
 export interface Category {
   id: number;
