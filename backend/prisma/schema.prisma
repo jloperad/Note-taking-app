@@ -15,10 +15,27 @@ datasource db {
 }
 
 model Note {
-  id         Int      @id @default(autoincrement())
-  title      String
-  content    String
-  isArchived Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id           Int           @id @default(autoincrement())
+  title        String
+  content      String
+  isArchived   Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  categories   CategoryOnNote[]
+}
+
+model Category {
+  id     Int    @id @default(autoincrement())
+  name   String @unique
+  color  String
+  notes  CategoryOnNote[]
+}
+
+model CategoryOnNote {
+  note       Note     @relation(fields: [noteId], references: [id])
+  noteId     Int
+  category   Category @relation(fields: [categoryId], references: [id])
+  categoryId Int
+
+  @@id([noteId, categoryId])
 }

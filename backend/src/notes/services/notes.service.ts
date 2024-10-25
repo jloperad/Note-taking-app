@@ -1,12 +1,21 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { NotesRepository } from '../repositories/notes.repository';
+import { CategoriesService } from '../../categories/services/categories.service';
 import { Note } from '../entities/note.entity';
 import { CreateNoteDto } from '../dto/create-note.dto';
 import { UpdateNoteDto } from '../dto/update-note.dto';
 
+
 @Injectable()
 export class NotesService {
-  constructor(private readonly notesRepository: NotesRepository) {}
+  constructor(
+    private readonly notesRepository: NotesRepository,
+    private readonly categoriesService: CategoriesService
+  ) {}
+
+  async getAllNotes(active: boolean): Promise<Note[]> {
+    return this.notesRepository.findAll(active);
+  }
 
   async getActiveNotes(): Promise<Note[]> {
     return this.notesRepository.findAll(true);
@@ -42,5 +51,27 @@ export class NotesService {
     const note = await this.getNoteById(id);
     return this.notesRepository.update(id, { isArchived: !note.isArchived });
   }
-}
 
+  async addCategoryToNote(noteId: number, categoryId: number): Promise<void> {
+    await this.getNoteById(noteId); // Ensure the note exists
+    await this.categoriesService.getCategoryById(categoryId); // Ensure the category exists
+    const existingRelation = await this.notesRepository.findCategoryNoteRelation(noteId, categoryId);
+    if (!existingRelation) {
+      await this.notesRepository.addCategoryToNote(noteId, categoryId);
+    }
+  }
+
+  async removeCategoryFromNote(noteId: number, categoryId: number): Promise<void> {
+    await this.getNoteById(noteId); // Ensure the note exists
+    await this.categoriesService.getCategoryById(categoryId); // Ensure the category exists
+    const existingRelation = await this.notesRepository.findCategoryNoteRelation(noteId, categoryId);
+    if (existingRelation) {
+      await this.notesRepository.removeCategoryFromNote(noteId, categoryId);
+    }
+  }
+
+  async getNotesByCategory(categoryId: number, active: boolean): Promise<Note[]> {
+    await this.categoriesService.getCategoryById(categoryId); // Ensure the category exists
+    return this.notesRepository.findByCategory(categoryId, active);
+  }
+}

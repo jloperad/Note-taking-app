@@ -18,6 +18,13 @@ export class NotesRepository {
   async findById(id: number): Promise<Note | null> {
     return this.prisma.note.findUnique({
       where: { id },
+      include: {
+        categories: {
+          include: {
+            category: true
+          }
+        }
+      }
     });
   }
 
@@ -39,5 +46,57 @@ export class NotesRepository {
       where: { id },
     });
   }
-}
 
+  async addCategoryToNote(noteId: number, categoryId: number): Promise<void> {
+    await this.prisma.categoryOnNote.create({
+      data: {
+        noteId,
+        categoryId
+      }
+    });
+  }
+
+  async removeCategoryFromNote(noteId: number, categoryId: number): Promise<void> {
+    await this.prisma.categoryOnNote.delete({
+      where: {
+        noteId_categoryId: {
+          noteId,
+          categoryId
+        }
+      }
+    });
+  }
+
+  async findByCategory(categoryId: number, active: boolean): Promise<Note[]> {
+    return this.prisma.note.findMany({
+      where: {
+        isArchived: !active,
+        categories: {
+          some: {
+            categoryId: categoryId
+          }
+        }
+      },
+      include: {
+        categories: {
+          include: {
+            category: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async findCategoryNoteRelation(noteId: number, categoryId: number): Promise<boolean> {
+    const relation = await this.prisma.categoryOnNote.findUnique({
+      where: {
+        noteId_categoryId: {
+          noteId,
+          categoryId
+        }
+      }
+    });
+    return !!relation;
+  }
+}
