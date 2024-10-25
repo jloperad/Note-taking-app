@@ -1,6 +1,15 @@
 # Note Taking App
 
-This is a full-stack note-taking application built with Next.js for the frontend and Nest.js for the backend. The app allows users to create, edit, delete, archive, and filter notes.
+This is a full-stack note-taking application built with Next.js for the frontend and Nest.js for the backend. The app provides a comprehensive set of features for managing notes:
+
+- Create, edit, and delete notes with a user-friendly interface
+- Archive and unarchive notes to keep your workspace organized
+- Add and remove categories to notes for better organization
+- Filter notes by category to quickly find relevant information
+- View separate lists for active and archived notes
+- Responsive design for seamless use on desktop and mobile devices
+
+The frontend, built with Next.js 15, offers a modern and intuitive user interface. The backend, powered by Nest.js 10, provides a robust REST API with proper separation of concerns (Controllers, Services, Repositories) for scalability and maintainability. Data persistence is handled through Prisma ORM, connecting to a PostgreSQL database hosted on Supabase for reliable and efficient data storage.
 
 ## Technologies Used
 
