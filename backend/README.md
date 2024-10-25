@@ -59,6 +59,9 @@ A Nest.js backend for the Note Taking App, utilizing Prisma ORM and PostgreSQL.
 
 ## API Endpoints
 
+### Notes
+
+- `GET /api/notes` - Retrieve all notes (with optional `active` query parameter).
 - `GET /api/notes/active` - Retrieve all active notes.
 - `GET /api/notes/archived` - Retrieve all archived notes.
 - `GET /api/notes/:id` - Retrieve a note by ID.
@@ -66,3 +69,15 @@ A Nest.js backend for the Note Taking App, utilizing Prisma ORM and PostgreSQL.
 - `PUT /api/notes/:id` - Update a note by ID.
 - `DELETE /api/notes/:id` - Delete a note by ID.
 - `PUT /api/notes/:id/archive` - Toggle archive status of a note by ID.
+- `POST /api/notes/:noteId/categories/:categoryId` - Add a category to a note.
+- `DELETE /api/notes/:noteId/categories/:categoryId` - Remove a category from a note.
+- `GET /api/notes/category/:categoryId` - Get notes by category (with optional `active` query parameter).
+
+### Categories
+
+- `GET /api/categories` - Retrieve all categories.
+- `GET /api/categories/:id` - Retrieve a category by ID.
+- `POST /api/categories` - Create a new category.
+- `PUT /api/categories/:id` - Update a category by ID.
+- `DELETE /api/categories/:id` - Delete a category by ID.
+- `GET /api/notes/:noteId/categories` - Get categories for a specific note.

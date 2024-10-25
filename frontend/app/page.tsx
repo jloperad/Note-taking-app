@@ -10,31 +10,60 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
-import { getActiveNotes, getArchivedNotes, createNote, updateNote, deleteNote, toggleArchiveStatus } from '../services/notes-service'
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { getActiveNotes, getArchivedNotes, createNote, updateNote, deleteNote, toggleArchiveStatus, getNotesByCategory, addCategoryToNote, removeCategoryFromNote } from '../services/notes-service'
+import { getAllCategories, createCategory} from '../services/category-service'
 
- export type Note = {
+export type Note = {
   id: number
   title: string
   content: string
   isArchived: boolean
 }
 
+type Category = {
+  id: number
+  name: string
+  color: string
+}
+
 export default function NoteTakingApp() {
   const [notes, setNotes] = useState<Note[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [showArchived, setShowArchived] = useState(false)
   const [editingNote, setEditingNote] = useState<Note | null>(null)
   const [deleteConfirmation, setDeleteConfirmation] = useState<number | null>(null)
-  const [loading, setLoading] = useState(true) // Add loading state
+  const [loading, setLoading] = useState(true)
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null)
+  const [newCategory, setNewCategory] = useState('')
 
   useEffect(() => {
     const fetchNotes = async () => {
-      setLoading(true); // Set loading to true before fetching
-      const fetchedNotes = showArchived ? await getArchivedNotes() : await getActiveNotes();
+      setLoading(true);
+      let fetchedNotes;
+      if (selectedCategory === null) {
+        fetchedNotes = showArchived ? await getArchivedNotes() : await getActiveNotes();
+      } else {
+        fetchedNotes = await getNotesByCategory(selectedCategory, !showArchived);
+      }
       setNotes(fetchedNotes);
-      setLoading(false); // Set loading to false after fetching
+      setLoading(false);
     };
     fetchNotes();
-  }, [showArchived]);
+  }, [showArchived, selectedCategory]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const fetchedCategories = await getAllCategories();
+        setCategories(fetchedCategories as Category[]);
+      } catch (error) {
+        console.error('Error fetching categories:', (error as Error).message);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   const filteredNotes = notes.filter(note => note.isArchived === showArchived)
 
@@ -53,13 +82,11 @@ export default function NoteTakingApp() {
   }
 
   const handleArchiveToggle = async (noteId: number) => {
-    // Optimistically update the UI
     const updatedNotes = notes.map(note => 
       note.id === noteId ? { ...note, isArchived: !note.isArchived } : note
     );
     setNotes(updatedNotes);
 
-    // Perform the archive operation
     try {
       const updatedNote = await toggleArchiveStatus(noteId);
       setNotes(prevNotes => prevNotes.map(note => 
@@ -67,7 +94,6 @@ export default function NoteTakingApp() {
       ));
     } catch (error) {
       console.error('Error toggling archive status:', (error as Error).message);
-      // Revert the optimistic update if the operation fails
       setNotes(prevNotes => prevNotes.map(note => 
         note.id === noteId ? { ...note, isArchived: !note.isArchived } : note
       ));
@@ -75,15 +101,12 @@ export default function NoteTakingApp() {
   }
 
   const handleDeleteNote = async (noteId: number) => {
-    // Optimistically update the UI
     setNotes(notes.filter(note => note.id !== noteId));
 
-    // Perform the delete operation
     try {
       await deleteNote(noteId);
     } catch (error) {
       console.error('Error deleting note:', (error as Error).message);
-      // Optionally, revert the optimistic update if the operation fails
       const deletedNote = notes.find(note => note.id === noteId);
       if (deletedNote) {
         setNotes(prevNotes => [...prevNotes, deletedNote]);
@@ -93,8 +116,8 @@ export default function NoteTakingApp() {
   }
 
   const handleCreateNote = async () => {
-    const newNote = {id: 0, title: '', content: '', isArchived: false };
-    const createdNote = await createNote(newNote);
+    const newNote = {title: '', content: '', isArchived: false};
+    const createdNote = await createNote(newNote as any);
     setEditingNote(createdNote);
   }
 
@@ -107,11 +130,80 @@ export default function NoteTakingApp() {
     setEditingNote(null);
   }
 
+  const handleCreateCategory = async () => {
+    if (!newCategory.trim()) {
+      alert('Category name cannot be empty.');
+      return;
+    }
+    try {
+      const createdCategory = await createCategory({ name: newCategory });
+      setCategories(prevCategories => [...prevCategories, createdCategory as Category]);
+      setNewCategory('');
+    } catch (error) {
+      console.error('Error creating category:', (error as Error).message);
+    }
+  }
+
+  const handleAddCategory = async (noteId: number, categoryId: number) => {
+    try {
+      const updatedNote = await addCategoryToNote(noteId, categoryId);
+      setNotes(prevNotes => prevNotes.map(note => 
+        note.id === noteId ? updatedNote : note
+      ));
+      if (editingNote && editingNote.id === noteId) {
+        setEditingNote(updatedNote);
+      }
+    } catch (error) {
+      console.error('Error adding category to note:', (error as Error).message);
+    }
+  }
+
+  const handleRemoveCategory = async (noteId: number, categoryId: number) => {
+    try {
+      const updatedNote = await removeCategoryFromNote(noteId, categoryId);
+      setNotes(prevNotes => prevNotes.map(note => 
+        note.id === noteId ? updatedNote : note
+      ));
+      if (editingNote && editingNote.id === noteId) {
+        setEditingNote(updatedNote);
+      }
+    } catch (error) {
+      console.error('Error removing category from note:', (error as Error).message);
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-4xl mx-auto">
+    <div className="flex h-screen bg-gray-50">
+      {/* Sidebar */}
+      <aside className="w-64 bg-white p-6 shadow-sm">
+        <h2 className="text-xl font-semibold mb-6 text-gray-800">Categories</h2>
+        <ScrollArea className="h-[calc(100vh-8rem)]">
+          <button
+            className={`w-full text-left p-2 mb-2 rounded-md transition-colors ${
+              selectedCategory === null ? 'bg-gray-100 text-gray-800' : 'text-gray-600 hover:bg-gray-50'
+            }`}
+            onClick={() => setSelectedCategory(null)}
+          >
+            All Notes
+          </button>
+          {categories.map(category => (
+            <button
+              key={category.id}
+              className={`w-full text-left p-2 mb-2 rounded-md transition-colors ${
+                selectedCategory === category.id ? category.color : 'text-gray-600 hover:bg-gray-50'
+              }`}
+              onClick={() => setSelectedCategory(category.id)}
+            >
+              {category.name}
+            </button>
+          ))}
+        </ScrollArea>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 p-6 overflow-auto">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Notes</h1>
+          <h1 className="text-2xl font-semibold text-gray-800">Notes</h1>
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Switch
@@ -119,9 +211,9 @@ export default function NoteTakingApp() {
                 checked={showArchived}
                 onCheckedChange={setShowArchived}
               />
-              <Label htmlFor="archived">Show Archived</Label>
+              <Label htmlFor="archived" className="text-sm text-gray-600">Show Archived</Label>
             </div>
-            <Button onClick={handleCreateNote}>
+            <Button onClick={handleCreateNote} className="bg-gray-800 text-white hover:bg-gray-700">
               <Plus className="mr-2 h-4 w-4" /> New Note
             </Button>
           </div>
@@ -132,28 +224,38 @@ export default function NoteTakingApp() {
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
           </div>
-        ) : (
+        ) : filteredNotes.length > 0 ? (
           // Notes Grid
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredNotes.map(note => (
-              <Card key={note.id} className="flex flex-col">
-                <CardHeader>
-                  <CardTitle>{note.title}</CardTitle>
+              <Card key={note.id} className="flex flex-col shadow-sm hover:shadow-md transition-shadow">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg font-medium text-gray-800">{note.title}</CardTitle>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {note.categoryIds && note.categoryIds.map(categoryId => {
+                      const category = categories.find(c => c.id === categoryId)
+                      return category ? (
+                        <span key={category.id} className={`text-xs px-2 py-1 rounded-full ${category.color}`}>
+                          {category.name}
+                        </span>
+                      ) : null
+                    })}
+                  </div>
                 </CardHeader>
                 <CardContent className="flex-grow">
-                  <p className="line-clamp-6">{note.content}</p>
+                  <p className="text-sm text-gray-600 line-clamp-3">{note.content}</p>
                 </CardContent>
-                <CardFooter className="flex justify-between">
-                  <Button variant="ghost" size="sm" onClick={() => handleNoteClick(note)}>
+                <CardFooter className="flex justify-between border-t pt-4">
+                  <Button variant="ghost" size="sm" onClick={() => handleNoteClick(note)} className="text-gray-600 hover:text-gray-800">
                     <Edit3 className="mr-1 h-4 w-4" /> Edit
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={() => handleArchiveToggle(note.id)}>
+                  <Button variant="ghost" size="sm" onClick={() => handleArchiveToggle(note.id)} className="text-gray-600 hover:text-gray-800">
                     {note.isArchived ? <CheckSquare className="mr-1 h-4 w-4" /> : <Archive className="mr-1 h-4 w-4" />}
                     {note.isArchived ? 'Unarchive' : 'Archive'}
                   </Button>
-                  <Dialog open={deleteConfirmation === note.id} onOpenChange={(open) => setDeleteConfirmation(open ? note.id : null)}>
+                  <Dialog open={deleteConfirmation === note.id} onOpenChange={() => setDeleteConfirmation(null)}>
                     <DialogTrigger asChild>
-                      <Button variant="ghost" size="icon">
+                      <Button variant="ghost" size="sm" onClick={() => setDeleteConfirmation(note.id)} className="text-gray-600 hover:text-red-600">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>
@@ -174,34 +276,84 @@ export default function NoteTakingApp() {
               </Card>
             ))}
           </div>
+        ) : (
+          <div className="flex justify-center items-center h-64">
+            <p className="text-lg text-gray-600">No notes found.</p>
+          </div>
         )}
-      </div>
+      </main>
 
       {/* Full-screen Edit Modal */}
       {editingNote && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <Card className="w-full max-w-3xl h-[90vh] flex flex-col">
-            <CardHeader className="flex flex-row items-center justify-between">
+          <Card className="w-full max-w-3xl h-[90vh] flex flex-col bg-white">
+            <CardHeader className="flex flex-row items-center justify-between border-b pb-4">
               <Input
-                className="text-2xl font-bold border-none focus:ring-0 p-0"
+                className="text-xl font-semibold border-none focus:ring-0 p-0 text-gray-800"
                 value={editingNote.title}
                 onChange={(e) => setEditingNote({ ...editingNote, title: e.target.value })}
                 placeholder="Note Title"
               />
-              <Button variant="ghost" size="icon" onClick={closeEditingModal}>
+              <Button variant="ghost" size="icon" onClick={closeEditingModal} className="text-gray-600 hover:text-gray-800">
                 <X className="h-6 w-6" />
               </Button>
             </CardHeader>
-            <CardContent className="flex-grow flex flex-col space-y-4">
+            <CardContent className="flex-grow flex flex-col space-y-4 py-4">
+              <div className="flex flex-wrap gap-2 mb-2">
+                {editingNote.categoryIds && editingNote.categoryIds.map(categoryId => {
+                  const category = categories.find(c => c.id === categoryId)
+                  return category ? (
+                    <span key={category.id} className={`text-xs px-2 py-1 rounded-full ${category.color} flex items-center`}>
+                      {category.name}
+                      <button
+                        className="ml-1 text-gray-600 hover:text-gray-800"
+                        onClick={() => handleRemoveCategory(editingNote.id, category.id)}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ) : null
+                })}
+              </div>
+              <div className="flex items-center space-x-2">
+                <Select
+                  onValueChange={(value) => handleAddCategory(editingNote.id, parseInt(value))}
+                >
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Add a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map(category => (
+                      <SelectItem key={category.id} value={category.id.toString()}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button size="sm" variant="outline" onClick={() => setNewCategory('')} className="text-gray-600 hover:text-gray-800">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              {newCategory !== '' && (
+                <div className="flex items-center space-x-2">
+                  <Input
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value)}
+                    placeholder="New category name"
+                    className="flex-grow"
+                  />
+                  <Button onClick={handleCreateCategory} size="sm">Add</Button>
+                </div>
+              )}
               <Textarea
-                className="flex-grow resize-none"
+                className="flex-grow resize-none text-gray-700"
                 value={editingNote.content}
                 onChange={(e) => setEditingNote({ ...editingNote, content: e.target.value })}
                 placeholder="Start writing your note here..."
               />
             </CardContent>
-            <CardFooter className="flex justify-end space-x-2">
-              <Button onClick={() => handleNoteUpdate(editingNote)}>Save Changes</Button>
+            <CardFooter className="flex justify-end space-x-2 border-t pt-4">
+              <Button onClick={() => handleNoteUpdate(editingNote)} className="bg-gray-800 text-white hover:bg-gray-700">Save Changes</Button>
             </CardFooter>
           </Card>
         </div>

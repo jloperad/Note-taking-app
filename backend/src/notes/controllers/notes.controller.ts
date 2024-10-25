@@ -74,4 +74,9 @@ export class NotesController {
   ): Promise<Note[]> {
     return this.notesService.getNotesByCategory(categoryId, active);
   }
+
+  @Get(':noteId/categories')
+  async getCategoriesForNote(@Param('noteId', ParseIntPipe) noteId: number): Promise<{ id: number; name: string; color: string }[]> {
+    return this.notesService.getCategoriesForNote(noteId);
+  }
 }

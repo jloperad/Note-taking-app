@@ -74,4 +74,9 @@ export class NotesService {
     await this.categoriesService.getCategoryById(categoryId); // Ensure the category exists
     return this.notesRepository.findByCategory(categoryId, active);
   }
+
+  async getCategoriesForNote(noteId: number): Promise<{ id: number; name: string; color: string }[]> {
+    await this.getNoteById(noteId); // Ensure the note exists
+    return this.notesRepository.findCategoriesByNoteId(noteId);
+  }
 }

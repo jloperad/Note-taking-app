@@ -99,4 +99,27 @@ export class NotesRepository {
     });
     return !!relation;
   }
+
+  async findCategoriesByNoteId(noteId: number): Promise<{ id: number; name: string; color: string }[]> {
+    const note = await this.prisma.note.findUnique({
+      where: { id: noteId },
+      include: {
+        categories: {
+          include: {
+            category: true
+          }
+        }
+      }
+    });
+
+    if (!note) {
+      return [];
+    }
+
+    return note.categories.map(categoryOnNote => ({
+      id: categoryOnNote.category.id,
+      name: categoryOnNote.category.name,
+      color: categoryOnNote.category.color
+    }));
+  }
 }
