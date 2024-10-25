@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { getActiveNotes, getArchivedNotes, createNote, updateNote, deleteNote, toggleArchiveStatus, getNotesByCategory, addCategoryToNote, removeCategoryFromNote } from '../services/notes-service'
+import { getActiveNotes, getArchivedNotes, createNote, updateNote, deleteNote, toggleArchiveStatus, getNotesByCategory, addCategoryToNote, removeCategoryFromNote, getCategoriesForNote } from '../services/notes-service'
 import { getAllCategories, createCategory} from '../services/category-service'
 
 export type Note = {
@@ -37,6 +37,10 @@ export default function NoteTakingApp() {
   const [loading, setLoading] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null)
   const [newCategory, setNewCategory] = useState('')
+  const [noteCategories, setNoteCategories] = useState<Category[]>([])
+  const [loadingCategories, setLoadingCategories] = useState(false)
+  const [isAddingCategory, setIsAddingCategory] = useState(false)
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchNotes = async () => {
@@ -67,8 +71,18 @@ export default function NoteTakingApp() {
 
   const filteredNotes = notes.filter(note => note.isArchived === showArchived)
 
-  const handleNoteClick = (note: Note) => {
+  const handleNoteClick = async (note: Note) => {
     setEditingNote(note)
+    setNoteCategories([]) // Clear previous categories
+    setLoadingCategories(true)
+    try {
+      const fetchedCategories = await getCategoriesForNote(note.id)
+      setNoteCategories(fetchedCategories)
+    } catch (error) {
+      console.error('Error fetching note categories:', (error as Error).message)
+    } finally {
+      setLoadingCategories(false)
+    }
   }
   
   const handleNoteUpdate = async (updatedNote: Note) => {
@@ -131,44 +145,67 @@ export default function NoteTakingApp() {
   }
 
   const handleCreateCategory = async () => {
-    if (!newCategory.trim()) {
-      alert('Category name cannot be empty.');
-      return;
-    }
+    if (!newCategory.trim() || !editingNote) return;
+    
+    setIsAddingCategory(true);
+    const tempId = Date.now(); // Temporary ID for optimistic rendering
+    const tempColor = 'bg-gray-200 text-gray-800'; // Temporary color
+    const tempCategory = { id: tempId, name: newCategory, color: tempColor };
+    
+    // Optimistic update
+    setNoteCategories(prev => [...prev, tempCategory]);
+    setCategories(prev => [...prev, tempCategory]);
+    
     try {
       const createdCategory = await createCategory({ name: newCategory });
-      setCategories(prevCategories => [...prevCategories, createdCategory as Category]);
-      setNewCategory('');
+      // Update with the real category data
+      setNoteCategories(prev => prev.map(cat => cat.id === tempId ? createdCategory : cat));
+      setCategories(prev => prev.map(cat => cat.id === tempId ? createdCategory : cat));
+      
+      // Add the category to the note
+      await handleAddCategory(editingNote.id, createdCategory.id);
     } catch (error) {
       console.error('Error creating category:', (error as Error).message);
+      // Revert optimistic update on error
+      setNoteCategories(prev => prev.filter(cat => cat.id !== tempId));
+      setCategories(prev => prev.filter(cat => cat.id !== tempId));
+    } finally {
+      setNewCategory('');
+      setIsAddingCategory(false);
     }
   }
 
   const handleAddCategory = async (noteId: number, categoryId: number) => {
+    const categoryToAdd = categories.find(c => c.id === categoryId);
+    if (!categoryToAdd) return;
+
+    // Optimistic update
+    setNoteCategories(prev => [...prev, categoryToAdd]);
+
     try {
-      const updatedNote = await addCategoryToNote(noteId, categoryId);
-      setNotes(prevNotes => prevNotes.map(note => 
-        note.id === noteId ? updatedNote : note
-      ));
-      if (editingNote && editingNote.id === noteId) {
-        setEditingNote(updatedNote);
-      }
+      await addCategoryToNote(noteId, categoryId);
+      // No need to update state here as we've already done it optimistically
     } catch (error) {
       console.error('Error adding category to note:', (error as Error).message);
+      // Revert optimistic update on error
+      setNoteCategories(prev => prev.filter(c => c.id !== categoryId));
     }
   }
 
   const handleRemoveCategory = async (noteId: number, categoryId: number) => {
+    // Optimistic update
+    setNoteCategories(prev => prev.filter(c => c.id !== categoryId));
+
     try {
-      const updatedNote = await removeCategoryFromNote(noteId, categoryId);
-      setNotes(prevNotes => prevNotes.map(note => 
-        note.id === noteId ? updatedNote : note
-      ));
-      if (editingNote && editingNote.id === noteId) {
-        setEditingNote(updatedNote);
-      }
+      await removeCategoryFromNote(noteId, categoryId);
+      // No need to update state here as we've already done it optimistically
     } catch (error) {
       console.error('Error removing category from note:', (error as Error).message);
+      // Revert optimistic update on error
+      const categoryToRestore = categories.find(c => c.id === categoryId);
+      if (categoryToRestore) {
+        setNoteCategories(prev => [...prev, categoryToRestore]);
+      }
     }
   }
 
@@ -231,7 +268,7 @@ export default function NoteTakingApp() {
               <Card key={note.id} className="flex flex-col shadow-sm hover:shadow-md transition-shadow">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-lg font-medium text-gray-800">{note.title}</CardTitle>
-                  <div className="flex flex-wrap gap-1 mt-1">
+                  {/* <div className="flex flex-wrap gap-1 mt-1">
                     {note.categoryIds && note.categoryIds.map(categoryId => {
                       const category = categories.find(c => c.id === categoryId)
                       return category ? (
@@ -240,7 +277,7 @@ export default function NoteTakingApp() {
                         </span>
                       ) : null
                     })}
-                  </div>
+                  </div> */}
                 </CardHeader>
                 <CardContent className="flex-grow">
                   <p className="text-sm text-gray-600 line-clamp-3">{note.content}</p>
@@ -255,7 +292,7 @@ export default function NoteTakingApp() {
                   </Button>
                   <Dialog open={deleteConfirmation === note.id} onOpenChange={(open) => setDeleteConfirmation(open ? note.id : null)}>
                     <DialogTrigger asChild>
-                    <Button variant="ghost" size="icon">
+                      <Button variant="ghost" size="icon">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>
@@ -299,10 +336,11 @@ export default function NoteTakingApp() {
               </Button>
             </CardHeader>
             <CardContent className="flex-grow flex flex-col space-y-4 py-4">
-              <div className="flex flex-wrap gap-2 mb-2">
-                {editingNote.categoryIds && editingNote.categoryIds.map(categoryId => {
-                  const category = categories.find(c => c.id === categoryId)
-                  return category ? (
+              <div className="flex flex-wrap gap-2 mb-2 min-h-[28px]">
+                {loadingCategories ? (
+                  <span className="text-sm text-gray-500">Loading categories...</span>
+                ) : noteCategories.length > 0 ? (
+                  noteCategories.map(category => (
                     <span key={category.id} className={`text-xs px-2 py-1 rounded-full ${category.color} flex items-center`}>
                       {category.name}
                       <button
@@ -312,12 +350,15 @@ export default function NoteTakingApp() {
                         <X className="h-3 w-3" />
                       </button>
                     </span>
-                  ) : null
-                })}
+                  ))
+                ) : (
+                  <span className="text-sm text-gray-500">No categories</span>
+                )}
               </div>
               <div className="flex items-center space-x-2">
                 <Select
-                  onValueChange={(value) => handleAddCategory(editingNote.id, parseInt(value))}
+                  value={selectedCategoryId}
+                  onValueChange={setSelectedCategoryId}
                 >
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="Add a category" />
@@ -330,8 +371,27 @@ export default function NoteTakingApp() {
                     ))}
                   </SelectContent>
                 </Select>
-                <Button size="sm" variant="outline" onClick={() => setNewCategory('')} className="text-gray-600 hover:text-gray-800">
-                  <Plus className="h-4 w-4" />
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => {
+                    if (selectedCategoryId) {
+                      handleAddCategory(editingNote.id, parseInt(selectedCategoryId));
+                      setSelectedCategoryId(null);
+                    } else {
+                      setNewCategory('');
+                    }
+                  }} 
+                  className="text-gray-600 hover:text-gray-800"
+                  disabled={isAddingCategory}
+                >
+                  {isAddingCategory ? (
+                    <span className="animate-spin">↻</span>
+                  ) : selectedCategoryId ? (
+                    'Add'
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
               {newCategory !== '' && (
@@ -342,7 +402,13 @@ export default function NoteTakingApp() {
                     placeholder="New category name"
                     className="flex-grow"
                   />
-                  <Button onClick={handleCreateCategory} size="sm">Add</Button>
+                  <Button 
+                    onClick={handleCreateCategory} 
+                    size="sm"
+                    disabled={isAddingCategory || !newCategory.trim()}
+                  >
+                    Add
+                  </Button>
                 </div>
               )}
               <Textarea
