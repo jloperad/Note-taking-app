@@ -8,9 +8,10 @@ A Nest.js backend for the Note Taking App, utilizing Prisma ORM and PostgreSQL.
 
 ### Prerequisites
 
-- Node.js v18.17
-- npm v9.6.7
-- PostgreSQL
+- **Node.js** v18.17
+- **npm** v9.6.7
+- **PostgreSQL** database
+- **Supabase** account for database hosting
 
 ### Installation
 

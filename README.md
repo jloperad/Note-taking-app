@@ -42,22 +42,6 @@ cd <your-repo-name>
 
 2. **Frontend**: No additional environment configuration is required.
 
-### Installation
-
-#### Backend
-
-```bash
-cd backend
-npm install
-```
-
-#### Frontend
-
-```bash
-cd frontend
-npm install
-```
-
 ### Running the Application
 
 A script is provided to set up and run both the frontend and backend applications.
@@ -89,4 +73,63 @@ This script will:
 - `DELETE /api/notes/:id` - Delete a note by ID.
 - `PUT /api/notes/:id/archive` - Toggle archive status of a note by ID.
 
-e.
+e.This script will:
+
+- Install dependencies for both frontend and backend.
+- Apply database migrations.
+- Generate the Prisma client.
+- Start the Nest.js server on port **3001**.
+- Start the Next.js development server on port **3000**.
+
+### Accessing the Application
+
+- **Frontend**: Open your browser and navigate to [http://localhost:3000](http://localhost:3000).
+- **Backend API**: Accessible at [http://localhost:3001/api](http://localhost:3001/api).
+
+## API Endpoints
+
+### Notes
+
+- `GET /api/notes` - Retrieve all notes (with optional `active` query parameter).
+- `GET /api/notes/active` - Retrieve all active notes.
+- `GET /api/notes/archived` - Retrieve all archived notes.
+- `GET /api/notes/:id` - Retrieve a note by ID.
+- `POST /api/notes` - Create a new note.
+- `PUT /api/notes/:id` - Update a note by ID.
+- `DELETE /api/notes/:id` - Delete a note by ID.
+- `PUT /api/notes/:id/archive` - Toggle archive status of a note by ID.
+- `POST /api/notes/:noteId/categories/:categoryId` - Add a category to a note.
+- `DELETE /api/notes/:noteId/categories/:categoryId` - Remove a category from a note.
+- `GET /api/notes/category/:categoryId` - Get notes by category (with optional `active` query parameter).
+
+### Categories
+
+- `GET /api/categories` - Retrieve all categories.
+- `GET /api/categories/:id` - Retrieve a category by ID.
+- `POST /api/categories` - Create a new category.
+- `PUT /api/categories/:id` - Update a category by ID.
+- `DELETE /api/categories/:id` - Delete a category by ID.
+- `GET /api/notes/:noteId/categories` - Get categories for a specific note.
+
+## Scripts
+
+### Backend
+
+- `npm run start`: Start the application.
+- `npm run start:dev`: Start the application in development mode.
+- `npm run build`: Build the application.
+- `npm run test`: Run tests.
+- `npm run lint`: Lint the codebase.
+
+### Frontend
+
+- `npm run dev`: Start the development server.
+- `npm run build`: Build the application.
+- `npm run start`: Start the production server.
+- `npm run lint`: Lint the codebase.
+
+## Additional Information
+
+### Live Deployment
+
+If deployed, add the URL of the live running version here.
