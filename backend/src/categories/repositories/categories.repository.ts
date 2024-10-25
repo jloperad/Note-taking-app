@@ -50,8 +50,16 @@ export class CategoriesRepository {
 
   async delete(id: number): Promise<void> {
     await this.findById(id); // Ensure the category exists
-    await this.prisma.category.delete({
-      where: { id },
+    await this.prisma.$transaction(async (prisma) => {
+      // First, delete all associations between the category and notes
+      await prisma.categoryOnNote.deleteMany({
+        where: { categoryId: id },
+      });
+
+      // Then, delete the category itself
+      await prisma.category.delete({
+        where: { id },
+      });
     });
   }
 }

@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getActiveNotes, getArchivedNotes, createNote, updateNote, deleteNote, toggleArchiveStatus, getNotesByCategory, addCategoryToNote, removeCategoryFromNote, getCategoriesForNote } from '../services/notes-service'
-import { getAllCategories, createCategory, updateCategory } from '../services/category-service'
+import { getAllCategories, createCategory, updateCategory, deleteCategory } from '../services/category-service'
 
 export type Note = {
   id: number
@@ -44,6 +44,7 @@ export default function NoteTakingApp() {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [newCategoryColor, setNewCategoryColor] = useState('bg-gray-200 text-gray-800')
+  const [deletingCategory, setDeletingCategory] = useState<number | null>(null)
 
   useEffect(() => {
     const fetchNotes = async () => {
@@ -233,6 +234,17 @@ export default function NoteTakingApp() {
     }
   }
 
+  const handleDeleteCategory = async (categoryId: number) => {
+    try {
+      await deleteCategory(categoryId)
+      setCategories(prev => prev.filter(c => c.id !== categoryId))
+      setDeletingCategory(null)
+    } catch (error) {
+      console.error('Error deleting category:', error)
+      alert('Failed to delete category. Please try again.')
+    }
+  }
+
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
@@ -276,6 +288,25 @@ export default function NoteTakingApp() {
                   <Button size="sm" variant="ghost" onClick={() => setEditingCategory(category)}>
                     <Pencil className="h-4 w-4" />
                   </Button>
+                  <Dialog open={deletingCategory === category.id} onOpenChange={(open) => setDeletingCategory(open ? category.id : null)}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" variant="ghost">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Confirm Deletion</DialogTitle>
+                        <DialogDescription>
+                          Are you sure you want to delete the category "{category.name}"? This action cannot be undone.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setDeletingCategory(null)}>Cancel</Button>
+                        <Button variant="destructive" onClick={() => handleDeleteCategory(category.id)}>Delete</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </>
               )}
             </div>
