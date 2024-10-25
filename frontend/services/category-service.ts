@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:3001/api'; // Adjust the port if necessary
+const API_URL = 'https://note-taking-app-33gt.onrender.com/api'; // Adjust the port if necessary
 
 // Update the Category type to include the color property
 export type Category = {
