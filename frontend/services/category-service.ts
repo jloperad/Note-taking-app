@@ -26,7 +26,7 @@ export const getCategoryById = async (id: number): Promise<Category> => {
   }
 };
 
-export const createCategory = async (category: Omit<Category, 'id'>): Promise<Category> => {
+export const createCategory = async (category: { name: string; color: string }): Promise<Category> => {
   try {
     const response = await axios.post(`${API_URL}/categories`, category);
     return response.data;

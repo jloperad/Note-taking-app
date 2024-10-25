@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Archive, CheckSquare, Edit3, Plus, Trash2, X } from 'lucide-react'
+import { Archive, CheckSquare, Edit3, Plus, Trash2, X, Pencil, Save } from 'lucide-react'
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getActiveNotes, getArchivedNotes, createNote, updateNote, deleteNote, toggleArchiveStatus, getNotesByCategory, addCategoryToNote, removeCategoryFromNote, getCategoriesForNote } from '../services/notes-service'
-import { getAllCategories, createCategory} from '../services/category-service'
+import { getAllCategories, createCategory, updateCategory } from '../services/category-service'
 
 export type Note = {
   id: number
@@ -41,6 +41,9 @@ export default function NoteTakingApp() {
   const [loadingCategories, setLoadingCategories] = useState(false)
   const [isAddingCategory, setIsAddingCategory] = useState(false)
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [newCategoryColor, setNewCategoryColor] = useState('bg-gray-200 text-gray-800')
 
   useEffect(() => {
     const fetchNotes = async () => {
@@ -145,33 +148,31 @@ export default function NoteTakingApp() {
   }
 
   const handleCreateCategory = async () => {
-    if (!newCategory.trim() || !editingNote) return;
-    
-    setIsAddingCategory(true);
-    const tempId = Date.now(); // Temporary ID for optimistic rendering
-    const tempColor = 'bg-gray-200 text-gray-800'; // Temporary color
-    const tempCategory = { id: tempId, name: newCategory, color: tempColor };
-    
-    // Optimistic update
-    setNoteCategories(prev => [...prev, tempCategory]);
-    setCategories(prev => [...prev, tempCategory]);
-    
+    if (!newCategoryName.trim()) return
+
+    setIsAddingCategory(true)
     try {
-      const createdCategory = await createCategory({ name: newCategory });
-      // Update with the real category data
-      setNoteCategories(prev => prev.map(cat => cat.id === tempId ? createdCategory : cat));
-      setCategories(prev => prev.map(cat => cat.id === tempId ? createdCategory : cat));
-      
-      // Add the category to the note
-      await handleAddCategory(editingNote.id, createdCategory.id);
+      const createdCategory = await createCategory({ name: newCategoryName, color: newCategoryColor })
+      setCategories(prev => [...prev, createdCategory])
+      setNewCategoryName('')
+      setNewCategoryColor('bg-gray-200 text-gray-800')
     } catch (error) {
-      console.error('Error creating category:', (error as Error).message);
-      // Revert optimistic update on error
-      setNoteCategories(prev => prev.filter(cat => cat.id !== tempId));
-      setCategories(prev => prev.filter(cat => cat.id !== tempId));
+      console.error('Error creating category:', (error as Error).message)
     } finally {
-      setNewCategory('');
-      setIsAddingCategory(false);
+      setIsAddingCategory(false)
+    }
+  }
+
+  const handleUpdateCategory = async (category: Category) => {
+    try {
+      const updatedCategory = await updateCategory(category.id, {
+        name: category.name,
+        color: category.color,
+      })
+      setCategories(prev => prev.map(c => c.id === updatedCategory.id ? updatedCategory : c))
+      setEditingCategory(null)
+    } catch (error) {
+      console.error('Error updating category:', (error as Error).message)
     }
   }
 
@@ -214,7 +215,7 @@ export default function NoteTakingApp() {
       {/* Sidebar */}
       <aside className="w-64 bg-white p-6 shadow-sm">
         <h2 className="text-xl font-semibold mb-6 text-gray-800">Categories</h2>
-        <ScrollArea className="h-[calc(100vh-8rem)]">
+        <ScrollArea className="h-[calc(100vh-16rem)]">
           <button
             className={`w-full text-left p-2 mb-2 rounded-md transition-colors ${
               selectedCategory === null ? 'bg-gray-100 text-gray-800' : 'text-gray-600 hover:bg-gray-50'
@@ -224,17 +225,109 @@ export default function NoteTakingApp() {
             All Notes
           </button>
           {categories.map(category => (
-            <button
-              key={category.id}
-              className={`w-full text-left p-2 mb-2 rounded-md transition-colors ${
-                selectedCategory === category.id ? category.color : 'text-gray-600 hover:bg-gray-50'
-              }`}
-              onClick={() => setSelectedCategory(category.id)}
-            >
-              {category.name}
-            </button>
+            <div key={category.id} className="flex items-center mb-2">
+              {editingCategory?.id === category.id ? (
+                <>
+                  <Input
+                    value={editingCategory.name}
+                    onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
+                    className="flex-grow mr-2"
+                  />
+                  <Button size="sm" onClick={() => handleUpdateCategory(editingCategory)}>
+                    <Save className="h-4 w-4" />
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingCategory(null)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <button
+                    className={`flex-grow text-left p-2 rounded-md transition-colors ${
+                      selectedCategory === category.id ? category.color : 'text-gray-600 hover:bg-gray-50'
+                    }`}
+                    onClick={() => setSelectedCategory(category.id)}
+                  >
+                    {category.name}
+                  </button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditingCategory(category)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
+            </div>
           ))}
         </ScrollArea>
+        <div className="mt-4">
+          <Input
+            value={newCategoryName}
+            onChange={(e) => setNewCategoryName(e.target.value)}
+            placeholder="New category name"
+            className="mb-2"
+          />
+          <Select value={newCategoryColor} onValueChange={setNewCategoryColor}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select color" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="bg-red-200 text-red-800">
+                <div className="flex items-center">
+                  <div className="w-4 h-4 rounded-full bg-red-500 mr-2"></div>
+                  Red
+                </div>
+              </SelectItem>
+              <SelectItem value="bg-blue-200 text-blue-800">
+                <div className="flex items-center">
+                  <div className="w-4 h-4 rounded-full bg-blue-500 mr-2"></div>
+                  Blue
+                </div>
+              </SelectItem>
+              <SelectItem value="bg-green-200 text-green-800">
+                <div className="flex items-center">
+                  <div className="w-4 h-4 rounded-full bg-green-500 mr-2"></div>
+                  Green
+                </div>
+              </SelectItem>
+              <SelectItem value="bg-yellow-200 text-yellow-800">
+                <div className="flex items-center">
+                  <div className="w-4 h-4 rounded-full bg-yellow-500 mr-2"></div>
+                  Yellow
+                </div>
+              </SelectItem>
+              <SelectItem value="bg-purple-200 text-purple-800">
+                <div className="flex items-center">
+                  <div className="w-4 h-4 rounded-full bg-purple-500 mr-2"></div>
+                  Purple
+                </div>
+              </SelectItem>
+              <SelectItem value="bg-pink-200 text-pink-800">
+                <div className="flex items-center">
+                  <div className="w-4 h-4 rounded-full bg-pink-500 mr-2"></div>
+                  Pink
+                </div>
+              </SelectItem>
+              <SelectItem value="bg-indigo-200 text-indigo-800">
+                <div className="flex items-center">
+                  <div className="w-4 h-4 rounded-full bg-indigo-500 mr-2"></div>
+                  Indigo
+                </div>
+              </SelectItem>
+              <SelectItem value="bg-teal-200 text-teal-800">
+                <div className="flex items-center">
+                  <div className="w-4 h-4 rounded-full bg-teal-500 mr-2"></div>
+                  Teal
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <Button 
+            onClick={handleCreateCategory} 
+            className="w-full mt-2"
+            disabled={isAddingCategory || !newCategoryName.trim()}
+          >
+            {isAddingCategory ? 'Adding...' : 'Add Category'}
+          </Button>
+        </div>
       </aside>
 
       {/* Main Content */}
