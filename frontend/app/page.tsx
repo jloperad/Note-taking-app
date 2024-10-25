@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getActiveNotes, getArchivedNotes, createNote, updateNote, deleteNote, toggleArchiveStatus, getNotesByCategory, addCategoryToNote, removeCategoryFromNote, getCategoriesForNote } from '../services/notes-service'
-import { getAllCategories, createCategory, updateCategory, deleteCategory } from '../services/category-service'
+import { getAllCategories, createCategory, updateCategory, deleteCategory, Category as ServiceCategory } from '../services/category-service'
 
 export type Note = {
   id: number
@@ -22,11 +22,7 @@ export type Note = {
   isArchived: boolean
 }
 
-type Category = {
-  id: number
-  name: string
-  color: string
-}
+type Category = ServiceCategory & { color: string };
 
 export default function NoteTakingApp() {
   const [notes, setNotes] = useState<Note[]>([])
@@ -182,7 +178,7 @@ export default function NoteTakingApp() {
     setIsAddingCategory(true)
     try {
       const createdCategory = await createCategory({ name: newCategoryName, color: newCategoryColor })
-      setCategories(prev => [...prev, createdCategory])
+      setCategories(prev => [...prev, createdCategory as Category])
       setNewCategoryName('')
       setNewCategoryColor('bg-gray-200 text-gray-800')
     } catch (error) {
@@ -198,7 +194,7 @@ export default function NoteTakingApp() {
         name: category.name,
         color: category.color,
       })
-      setCategories(prev => prev.map(c => c.id === updatedCategory.id ? updatedCategory : c))
+      setCategories(prev => prev.map(c => c.id === updatedCategory.id ? { ...updatedCategory, color: category.color } : c))
       setEditingCategory(null)
     } catch (error) {
       console.error('Error updating category:', (error as Error).message)
@@ -546,7 +542,7 @@ export default function NoteTakingApp() {
               </div>
               <div className="flex items-center space-x-2">
                 <Select
-                  value={selectedCategoryId}
+                  value={selectedCategoryId || undefined}
                   onValueChange={setSelectedCategoryId}
                 >
                   <SelectTrigger className="w-[180px]">
