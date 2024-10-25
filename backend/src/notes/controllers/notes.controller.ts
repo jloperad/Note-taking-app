@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, ParseIntPipe, Query } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, ParseIntPipe, Query, ParseBoolPipe } from '@nestjs/common';
 import { NotesService } from '../services/notes.service';
 import { CreateNoteDto } from '../dto/create-note.dto';
 import { UpdateNoteDto } from '../dto/update-note.dto';
@@ -70,7 +70,7 @@ export class NotesController {
   @Get('category/:categoryId')
   async getNotesByCategory(
     @Param('categoryId', ParseIntPipe) categoryId: number,
-    @Query('active') active: boolean,
+    @Query('active', new ParseBoolPipe({ optional: true, errorHttpStatusCode: 400 })) active?: boolean
   ): Promise<Note[]> {
     return this.notesService.getNotesByCategory(categoryId, active);
   }

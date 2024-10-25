@@ -75,16 +75,22 @@ export class NotesRepository {
     });
   }
 
-  async findByCategory(categoryId: number, active: boolean): Promise<Note[]> {
+  async findByCategory(categoryId: number, active?: boolean): Promise<Note[]> {
+    const where: {
+      categories: { some: { categoryId: number } };
+      isArchived?: boolean;
+    } = {
+      categories: {
+        some: { categoryId }
+      }
+    };
+
+    if (typeof active === 'boolean') {
+      where.isArchived = !active;
+    }
+
     return this.prisma.note.findMany({
-      where: {
-        isArchived: !active,
-        categories: {
-          some: {
-            categoryId: categoryId
-          }
-        }
-      },
+      where,
       include: {
         categories: {
           include: {
