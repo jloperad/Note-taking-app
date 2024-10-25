@@ -1,12 +1,13 @@
 import axios from 'axios';
 
-const API_URL = 'https://note-taking-app-33gt.onrender.com/api'; // Adjust the port if necessary
+const API_URL = 'http://localhost:3001/api'; // Adjust the port if necessary
 
-export interface Category {
+// Update the Category type to include the color property
+export type Category = {
   id: number;
   name: string;
-  // Add any other properties that a category might have
-}
+  color: string;
+};
 
 export const getAllCategories = async (): Promise<Category[]> => {
   try {
@@ -29,7 +30,7 @@ export const getCategoryById = async (id: number): Promise<Category> => {
 export const createCategory = async (category: { name: string; color: string }): Promise<Category> => {
   try {
     const response = await axios.post(`${API_URL}/categories`, category);
-    return response.data;
+    return response.data as Category;
   } catch (error) {
     throw new Error('Failed to create category.');
   }
