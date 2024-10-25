@@ -45,6 +45,7 @@ export default function NoteTakingApp() {
   const [newCategoryName, setNewCategoryName] = useState('')
   const [newCategoryColor, setNewCategoryColor] = useState('bg-gray-200 text-gray-800')
   const [deletingCategory, setDeletingCategory] = useState<number | null>(null)
+  const [noteCategoriesMap, setNoteCategoriesMap] = useState<Record<number, Category[] | null>>({});
 
   useEffect(() => {
     const fetchNotes = async () => {
@@ -112,6 +113,10 @@ export default function NoteTakingApp() {
           return [savedNote, ...prevNotes];
         }
       });
+
+      // Fetch categories for the updated note
+      const updatedCategories = await getCategoriesForNote(savedNote.id);
+      setNoteCategoriesMap(prev => ({ ...prev, [savedNote.id]: updatedCategories }));
 
       setEditingNote(null);
     } catch (error) {
@@ -244,6 +249,38 @@ export default function NoteTakingApp() {
       alert('Failed to delete category. Please try again.')
     }
   }
+
+  const fetchCategoriesForNotes = async (noteIds: number[]) => {
+    const categoriesPromises = noteIds.map(id => getCategoriesForNote(id));
+    const categoriesResults = await Promise.all(categoriesPromises);
+    const newNoteCategoriesMap = noteIds.reduce((acc, id, index) => {
+      acc[id] = categoriesResults[index];
+      return acc;
+    }, {} as Record<number, Category[]>);
+    setNoteCategoriesMap(prev => ({ ...prev, ...newNoteCategoriesMap }));
+  };
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const noteId = Number(entry.target.getAttribute('data-note-id'));
+            if (noteId && noteCategoriesMap[noteId] === undefined) {
+              setNoteCategoriesMap(prev => ({ ...prev, [noteId]: null })); // Set to null to indicate loading
+              fetchCategoriesForNotes([noteId]);
+            }
+          }
+        });
+      },
+      { threshold: 0.1 } // Trigger when 10% of the element is visible
+    );
+
+    const noteElements = document.querySelectorAll('[data-note-id]');
+    noteElements.forEach(el => observer.observe(el));
+
+    return () => observer.disconnect();
+  }, [filteredNotes, noteCategoriesMap]);
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -412,19 +449,24 @@ export default function NoteTakingApp() {
           // Notes Grid
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredNotes.map(note => (
-              <Card key={note.id} className="flex flex-col shadow-sm hover:shadow-md transition-shadow">
+              <Card key={note.id} className="flex flex-col shadow-sm hover:shadow-md transition-shadow" data-note-id={note.id}>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-lg font-medium text-gray-800">{note.title}</CardTitle>
-                  {/* <div className="flex flex-wrap gap-1 mt-1">
-                    {note.categoryIds && note.categoryIds.map(categoryId => {
-                      const category = categories.find(c => c.id === categoryId)
-                      return category ? (
+                  <div className="flex flex-wrap gap-1 mt-1 min-h-[24px]"> {/* Add min-height to prevent layout shift */}
+                    {noteCategoriesMap[note.id] === undefined ? (
+                      <span className="text-xs text-gray-500">Loading categories...</span>
+                    ) : noteCategoriesMap[note.id] === null ? (
+                      <span className="text-xs text-gray-500">Loading categories...</span>
+                    ) : noteCategoriesMap[note.id]?.length === 0 ? (
+                      <span className="text-xs text-gray-500">No categories</span>
+                    ) : (
+                      noteCategoriesMap[note.id]?.map(category => (
                         <span key={category.id} className={`text-xs px-2 py-1 rounded-full ${category.color}`}>
                           {category.name}
                         </span>
-                      ) : null
-                    })}
-                  </div> */}
+                      ))
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent className="flex-grow">
                   <p className="text-sm text-gray-600 line-clamp-3">{note.content}</p>
